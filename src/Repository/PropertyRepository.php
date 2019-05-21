@@ -3,13 +3,14 @@
 namespace App\Repository;
 
 use App\Entity\Property;
+use App\Entity\PropertySearch;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Bridge\Doctrine\RegistryInterface;
 
 /**
- * @method Property|null find($id, $lockMode = null, $lockVersion = null)
+ * @method Property|null find(Property[]$id, $lockMode = null, $lockVersion = null)
  * @method Property|null findOneBy(array $criteria, array $orderBy = null)
  * @method Property[]    findAll()
  * @method Property[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
@@ -22,11 +23,11 @@ class PropertyRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return Query[]
+     * @return Query
      */
-    public function findAllVisibleQuery (PropertySearch $search): Query
+    public function findAllVisibleQuery(PropertySearch $search): Query
     {
-        $query =  $this->findVisibleQuery();
+        $query = $this->findVisibleQuery();
 
         if ($search->getMaxPrice()) {
             $query = $query
@@ -40,14 +41,23 @@ class PropertyRepository extends ServiceEntityRepository
                 ->setParameter('minsurface', $search->getMinSurface());
         }
 
-            return $query->getQuery();
+        if ($search->getOptions()->count() > 0) {
+            $k = 0;
+            foreach($search->getOptions() as $option) {
+                $k++;
+                $query = $query
+                    ->andWhere(":option$k MEMBER OF p.options")
+                    ->setParameter("option$k", $option);
+            }
+        }
 
+        return $query->getQuery();
     }
 
     /**
      * @return Property[]
      */
-    public function findLatest():array
+    public function findLatest(): array
     {
         return $this->findVisibleQuery()
             ->setMaxResults(4)
@@ -55,16 +65,16 @@ class PropertyRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-
     private function findVisibleQuery(): QueryBuilder
     {
         return $this->createQueryBuilder('p')
             ->where('p.sold = false');
     }
 
-    // /**
-    //  * @return Property[] Returns an array of Property objects
-    //  */
+
+//    /**
+//     * @return Property[] Returns an array of Property objects
+//     */
     /*
     public function findByExampleField($value)
     {
